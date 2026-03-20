@@ -7,108 +7,23 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
   <style>
-    body { font-family: 'Inter', sans-serif; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); min-height: 100vh; }
-    .card { background: rgba(255,255,255,0.05); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); }
-    .input { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white; }
-    .input:focus { border-color: #00f0ff; outline: none; box-shadow: 0 0 15px rgba(0,240,255,0.3); }
-    .btn-primary { background: linear-gradient(135deg, #00f0ff 0%, #0099cc 100%); }
-    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(0,240,255,0.4); }
+    body { font-family: 'Inter', sans-serif; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); margin: 0; padding: 0; }
+    .header { text-align: center; padding: 20px; }
+    .logo { font-size: 60px; animation: float 3s ease-in-out infinite; }
     @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
-    .animate-float { animation: float 3s ease-in-out infinite; }
+    iframe { width: 100%; height: 90vh; border: none; }
+    .note { text-align: center; padding: 10px; color: #666; font-size: 12px; }
   </style>
 </head>
-<body class="p-4">
-  <div class="max-w-md mx-auto">
-    <div class="text-center mb-8 pt-8">
-      <div class="text-6xl mb-4 animate-float">📦</div>
-      <h1 class="text-3xl font-black text-white">REGISTRO DE</h1>
-      <h1 class="text-3xl font-black text-cyan-400">ENTREGAS</h1>
-    </div>
-
-    <form id="entregaForm" class="card rounded-2xl p-6 space-y-4">
-      <div>
-        <label class="block text-sm text-gray-300 mb-2">Nombre del Cadete *</label>
-        <input type="text" name="cadete" required class="input w-full px-4 py-3 rounded-lg" placeholder="Tu nombre">
-      </div>
-      
-      <div>
-        <label class="block text-sm text-gray-300 mb-2">Nombre del Afiliado *</label>
-        <input type="text" name="afiliado" required class="input w-full px-4 py-3 rounded-lg" placeholder="Nombre del afiliado">
-      </div>
-      
-      <div>
-        <label class="block text-sm text-gray-300 mb-2">Número de Remito *</label>
-        <input type="text" name="remito" required class="input w-full px-4 py-3 rounded-lg" placeholder="Ej: REM-001234">
-      </div>
-      
-      <div>
-        <label class="block text-sm text-gray-300 mb-2">Foto del Comprobante</label>
-        <input type="file" name="foto" accept="image/*" capture="environment" class="input w-full px-4 py-3 rounded-lg">
-      </div>
-      
-      <input type="hidden" name="fecha" id="fecha">
-      
-      <button type="submit" id="submitBtn" class="btn-primary w-full py-4 text-black font-bold rounded-xl mt-4">
-        REGISTRAR →
-      </button>
-    </form>
-
-    <div id="success" class="hidden text-center py-8">
-      <div class="text-8xl mb-4">✅</div>
-      <h2 class="text-2xl font-black text-white mb-2">¡REGISTRADO!</h2>
-      <p class="text-gray-400 mb-6">Guardado en Google Sheets</p>
-      <button onclick="resetForm()" class="px-6 py-3 border border-white/20 rounded-lg text-white hover:bg-white/10">
-        Nueva entrega
-      </button>
-    </div>
-
-    <div id="loading" class="hidden text-center py-8">
-      <div class="text-4xl animate-pulse">⏳</div>
-      <p class="text-gray-400">Guardando...</p>
-    </div>
+<body>
+  <div class="header">
+    <div class="logo">📦</div>
+    <h1 style="color:white;font-weight:900;margin:0;">REGISTRO DE</h1>
+    <h1 style="color:#00f0ff;font-weight:900;margin:0;">ENTREGAS</h1>
   </div>
-
-  <script>
-    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyFRZTLZwmlU1GVuMGq3bjoEEIldn3Eog-HprBfk_erI3rA9GzMKO6PTeKDu1nJCb_iZA/exec';
-    
-    document.getElementById('fecha').value = new Date().toLocaleString('es-AR');
-    
-    document.getElementById('entregaForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      
-      document.getElementById('entregaForm').classList.add('hidden');
-      document.getElementById('loading').classList.remove('hidden');
-      
-      const formData = new FormData(e.target);
-      
-      // Create URL-encoded string
-      const params = new URLSearchParams();
-      params.append('cadete', formData.get('cadete'));
-      params.append('afiliado', formData.get('afiliado'));
-      params.append('remito', formData.get('remito'));
-      params.append('fecha', formData.get('fecha'));
-      params.append('foto', formData.get('foto').name || '');
-
-      try {
-        await fetch(SCRIPT_URL, {
-          method: 'POST',
-          redirect: 'follow',
-          body: params
-        });
-      } catch (error) {
-        console.log('Error:', error);
-      }
-
-      document.getElementById('loading').classList.add('hidden');
-      document.getElementById('success').classList.remove('hidden');
-    });
-
-    function resetForm() {
-      document.getElementById('entregaForm').reset();
-      document.getElementById('fecha').value = new Date().toLocaleString('es-AR');
-      document.getElementById('entregaForm').classList.remove('hidden');
-      document.getElementById('success').classList.add('hidden');
-    }
-  </script>
+  <iframe src="https://docs.google.com/forms/d/e/1FAIpQLSd_c6vvIti_iHEpnx8mqIRgjFTUIoCoR8gPIed6tOHzMbXIbg/viewform?embedded=true"></iframe>
+  <div class="note">
+    💡 Los datos se guardan automáticamente en Google Sheets
+  </div>
 </body>
 </html>
