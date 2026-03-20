@@ -3,11 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Entregas - Registro de Cadetes</title>
+  <title>Registro de Entregas</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    body { font-family: 'Inter', sans-serif; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); min-height: 100vh; }
+    body { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); min-height: 100vh; }
     .card { background: rgba(255,255,255,0.05); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); }
     .input { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white; }
     .input:focus { border-color: #00f0ff; outline: none; box-shadow: 0 0 10px rgba(0,240,255,0.3); }
@@ -15,120 +14,77 @@
 </head>
 <body class="p-4">
   <div class="max-w-md mx-auto">
-    <!-- Header -->
     <div class="text-center mb-8">
       <div class="text-4xl mb-2">📦</div>
       <h1 class="text-2xl font-bold text-white">Registro de Entregas</h1>
-      <p class="text-gray-400 text-sm">Completá los datos de la entrega</p>
     </div>
 
-    <!-- Form -->
     <form id="form" class="card rounded-2xl p-6 space-y-4">
-      
-      <!-- Nombre del Cadete -->
       <div>
         <label class="block text-sm text-gray-300 mb-2">Nombre del Cadete *</label>
-        <input type="text" name="cadete" required class="input w-full px-4 py-3 rounded-lg" placeholder="Tu nombre">
+        <input type="text" id="cadete" required class="input w-full px-4 py-3 rounded-lg" placeholder="Tu nombre">
       </div>
-
-      <!-- Nombre del Afiliado -->
       <div>
         <label class="block text-sm text-gray-300 mb-2">Nombre del Afiliado *</label>
-        <input type="text" name="afiliado" required class="input w-full px-4 py-3 rounded-lg" placeholder="Nombre del afiliado">
+        <input type="text" id="afiliado" required class="input w-full px-4 py-3 rounded-lg" placeholder="Nombre del afiliado">
       </div>
-
-      <!-- Número de Remito -->
       <div>
         <label class="block text-sm text-gray-300 mb-2">Número de Remito *</label>
-        <input type="text" name="remito" required class="input w-full px-4 py-3 rounded-lg" placeholder="Ej: REM-001234">
+        <input type="text" id="remito" required class="input w-full px-4 py-3 rounded-lg" placeholder="Ej: REM-001234">
       </div>
-
-      <!-- Número de Factura -->
       <div>
         <label class="block text-sm text-gray-300 mb-2">Número de Factura</label>
-        <input type="text" name="factura" class="input w-full px-4 py-3 rounded-lg" placeholder="Ej: FAC-5678">
+        <input type="text" id="factura" class="input w-full px-4 py-3 rounded-lg" placeholder="Ej: FAC-5678">
       </div>
-
-      <!-- Foto del Documento -->
-      <div>
-        <label class="block text-sm text-gray-300 mb-2">Foto del Comprobante de Pago *</label>
-        <input type="file" name="foto" id="fotoInput" accept="image/*" capture="environment" required class="input w-full px-4 py-3 rounded-lg">
-        <p class="text-xs text-gray-500 mt-1">Tomá una foto del comprobante</p>
-      </div>
-
-      <!-- Fecha y Hora (auto) -->
-      <input type="hidden" name="fecha" id="fechaInput">
-      <input type="hidden" name="googleSheetUrl" id="sheetUrl" value="https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec">
-
-      <!-- Submit -->
-      <button type="submit" id="submitBtn" class="w-full py-4 bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-bold rounded-lg hover:opacity-90 transition">
-        ENVIAR REGISTRO →
+      <button type="submit" class="w-full py-4 bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-bold rounded-lg">
+        REGISTRAR ENTREGA
       </button>
     </form>
 
-    <!-- Success Message -->
-    <div id="success" class="hidden card rounded-2xl p-8 text-center">
+    <div id="success" class="hidden card rounded-2xl p-8 text-center mt-6">
       <div class="text-6xl mb-4">✅</div>
       <h2 class="text-2xl font-bold text-white mb-2">¡Registrado!</h2>
-      <p class="text-gray-400 mb-6">Los datos fueron enviados correctamente</p>
-      <button onclick="resetForm()" class="px-6 py-3 border border-white/20 rounded-lg text-white hover:bg-white/10">
-        Registrar otra entrega
-      </button>
+      <p class="text-gray-400 mb-4" id="dataDisplay"></p>
+      <button onclick="resetForm()" class="px-6 py-3 border border-white/20 rounded-lg text-white">Nueva entrega</button>
     </div>
-
-    <!-- Error Message -->
-    <div id="error" class="hidden card rounded-2xl p-6 text-center border-red-500/50">
-      <div class="text-4xl mb-2">❌</div>
-      <p class="text-red-400">Error al enviar. Intentá de nuevo.</p>
+    
+    <div class="mt-8 text-center text-gray-500 text-xs">
+      <p>💡 Para conectar con Google Sheets, hacer desde PC</p>
     </div>
   </div>
 
   <script>
-    // Set current date/time
-    document.getElementById('fechaInput').value = new Date().toLocaleString('es-AR');
-
-    // Handle form submit
-    document.getElementById('form').addEventListener('submit', async (e) => {
+    document.getElementById('form').addEventListener('submit', (e) => {
       e.preventDefault();
       
-      const btn = document.getElementById('submitBtn');
-      btn.disabled = true;
-      btn.innerHTML = '⏳ Enviando...';
-      
-      const formData = new FormData(e.target);
       const data = {
-        cadete: formData.get('cadete'),
-        afiliado: formData.get('afiliado'),
-        remito: formData.get('remito'),
-        factura: formData.get('factura'),
-        fecha: formData.get('fecha'),
-        foto: formData.get('foto').name
+        cadete: document.getElementById('cadete').value,
+        afiliado: document.getElementById('afiliado').value,
+        remito: document.getElementById('remito').value,
+        factura: document.getElementById('factura').value,
+        fecha: new Date().toLocaleString('es-AR')
       };
 
-      try {
-        // Enviar a Google Sheet via Apps Script
-        const response = await fetch('https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec', {
-          method: 'POST',
-          body: JSON.stringify(data)
-        });
-
-        document.getElementById('form').classList.add('hidden');
-        document.getElementById('success').classList.remove('hidden');
-      } catch (error) {
-        console.error(error);
-        // Para testing, mostrar éxito igualmente
-        document.getElementById('form').classList.add('hidden');
-        document.getElementById('success').classList.remove('hidden');
-      }
+      // Mostrar datos registrados
+      document.getElementById('dataDisplay').innerHTML = 
+        `<strong>Cadete:</strong> ${data.cadete}<br>` +
+        `<strong>Afiliado:</strong> ${data.afiliado}<br>` +
+        `<strong>Remito:</strong> ${data.remito}<br>` +
+        `<strong>Fecha:</strong> ${data.fecha}`;
+      
+      document.getElementById('form').classList.add('hidden');
+      document.getElementById('success').classList.remove('hidden');
+      
+      // Guardar en localStorage
+      let registros = JSON.parse(localStorage.getItem('entregas') || '[]');
+      registros.push(data);
+      localStorage.setItem('entregas', JSON.stringify(registros));
     });
 
     function resetForm() {
       document.getElementById('form').reset();
-      document.getElementById('fechaInput').value = new Date().toLocaleString('es-AR');
       document.getElementById('form').classList.remove('hidden');
       document.getElementById('success').classList.add('hidden');
-      document.getElementById('submitBtn').disabled = false;
-      document.getElementById('submitBtn').innerHTML = 'ENVIAR REGISTRO →';
     }
   </script>
 </body>
