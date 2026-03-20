@@ -15,6 +15,7 @@
     .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(0,240,255,0.4); }
     @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
     .animate-float { animation: float 3s ease-in-out infinite; }
+    .file-input::file-selector-button { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white; padding: 8px 16px; border-radius: 8px; margin-right: 12px; }
   </style>
 </head>
 <body class="p-4">
@@ -42,11 +43,14 @@
         <label class="block text-sm text-gray-300 mb-2">Número de Remito *</label>
         <input type="text" id="remito" required class="input w-full px-4 py-3 rounded-lg" placeholder="Ej: REM-001234">
       </div>
-      
+
       <div>
-        <label class="block text-sm text-gray-300 mb-2">Número de Factura</label>
-        <input type="text" id="factura" class="input w-full px-4 py-3 rounded-lg" placeholder="Ej: FAC-5678">
+        <label class="block text-sm text-gray-300 mb-2">Foto del Comprobante</label>
+        <input type="file" id="foto" accept="image/*" capture="environment" class="input w-full px-4 py-3 rounded-lg file-input">
+        <p class="text-xs text-gray-500 mt-1">Tomá foto del comprobante</p>
       </div>
+      
+      <input type="hidden" id="fecha" value="">
       
       <button type="submit" id="submitBtn" class="btn-primary w-full py-4 text-black font-bold rounded-xl mt-4">
         REGISTRAR →
@@ -73,17 +77,27 @@
   <script>
     const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyFRZTLZwmlU1GVuMGq3bjoEEIldn3Eog-HprBfk_erI3rA9GzMKO6PTeKDu1nJCb_iZA/exec';
     
+    // Set fecha
+    document.getElementById('fecha').value = new Date().toLocaleString('es-AR');
+    
     document.getElementById('entregaForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       
       document.getElementById('entregaForm').classList.add('hidden');
       document.getElementById('loading').classList.remove('hidden');
       
+      const fotoInput = document.getElementById('foto');
+      let fotoName = '';
+      if (fotoInput.files.length > 0) {
+        fotoName = fotoInput.files[0].name;
+      }
+      
       const data = {
         cadete: document.getElementById('cadete').value,
         afiliado: document.getElementById('afiliado').value,
         remito: document.getElementById('remito').value,
-        factura: document.getElementById('factura').value
+        fecha: document.getElementById('fecha').value,
+        foto: fotoName
       };
 
       try {
@@ -93,7 +107,7 @@
           body: JSON.stringify(data)
         });
       } catch (error) {
-        console.log('Error (expected with no-cors):', error);
+        console.log('Error:', error);
       }
 
       document.getElementById('loading').classList.add('hidden');
@@ -102,6 +116,7 @@
 
     function resetForm() {
       document.getElementById('entregaForm').reset();
+      document.getElementById('fecha').value = new Date().toLocaleString('es-AR');
       document.getElementById('entregaForm').classList.remove('hidden');
       document.getElementById('success').classList.add('hidden');
     }
