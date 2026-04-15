@@ -1,18 +1,320 @@
 <!DOCTYPE html>
-<html>
+<html lang="es">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Registro de Entregas</title>
+  <title>Cadetes</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700&display=swap"
+    rel="stylesheet"
+  >
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f4f1eb;
+      --surface: #fbfaf7;
+      --text: #1f1f1c;
+      --muted: #6f6a63;
+      --line: #d7d1c7;
+      --accent: #1d6d50;
+      --accent-soft: #e8f1ed;
+      --danger: #9e3d35;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      min-height: 100%;
+    }
+
+    body {
+      font-family: "Manrope", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    main {
+      min-height: 100svh;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+
+    .app {
+      width: min(100%, 420px);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 28px;
+    }
+
+    .brand img {
+      width: 54px;
+      height: 54px;
+      border-radius: 14px;
+      object-fit: cover;
+    }
+
+    .brand p {
+      margin: 0;
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+
+    h1 {
+      margin: 2px 0 0;
+      font-size: 1.55rem;
+      line-height: 1.05;
+      letter-spacing: -0.04em;
+    }
+
+    form {
+      display: grid;
+      gap: 12px;
+    }
+
+    input,
+    button {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      font: inherit;
+    }
+
+    input {
+      padding: 16px;
+      background: var(--surface);
+      color: var(--text);
+    }
+
+    input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    button {
+      padding: 16px;
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    .meta,
+    .message {
+      margin-top: 14px;
+      font-size: 0.9rem;
+      line-height: 1.5;
+      color: var(--muted);
+    }
+
+    .message.error {
+      color: var(--danger);
+    }
+
+    .message.success {
+      color: var(--accent);
+    }
+
+    .success {
+      display: none;
+      padding: 18px 0 0;
+    }
+
+    .success.visible {
+      display: block;
+    }
+
+    .success strong {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 1rem;
+    }
+
+    .setup {
+      margin-top: 18px;
+      padding: 14px 16px;
+      border-radius: 14px;
+      background: var(--accent-soft);
+      color: var(--muted);
+      font-size: 0.88rem;
+      line-height: 1.5;
+      display: none;
+    }
+
+    .setup.visible {
+      display: block;
+    }
+
+    .hidden-frame {
+      width: 0;
+      height: 0;
+      border: 0;
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+  </style>
 </head>
-<body style="margin:0;padding:60px 20px;text-align:center;font-family:Arial,sans-serif;background:linear-gradient(180deg,#e8f5e9 0%,#c8e6c9 100%);min-height:100vh;box-sizing:border-box;">
-  <div style="background:#fff;border-radius:20px;padding:30px;display:inline-block;box-shadow:0 4px 15px rgba(0,0,0,0.1);">
-    <img src="logo.jpg" style="width:100px;margin-bottom:15px;border-radius:10px;">
-    <h1 style="color:#2e7d32;margin:10px 0;font-size:22px;">Registro de Entregas</h1>
-    <a href="https://docs.google.com/forms/d/e/1FAIpQLSd_c6vvIti_iHEpnx8mqIRgjFTUIoCoR8gPIed6tOHzMbXIbg/viewform" 
-       style="display:inline-block;padding:14px 35px;background:#2e7d32;color:#fff;text-decoration:none;border-radius:8px;font-size:16px;margin-top:10px;">
-      Registrar Entrega
-    </a>
-  </div>
+<body>
+  <main>
+    <section class="app">
+      <div class="brand">
+        <img src="logo.jpg" alt="Logo de la farmacia">
+        <div>
+          <p id="pharmacy-name">Farmacia</p>
+          <h1>Registrar entrega</h1>
+        </div>
+      </div>
+
+      <form id="delivery-form" method="POST" target="submit-target" novalidate>
+        <input id="cadete" name="cadete" type="text" placeholder="Cadete" required>
+        <input id="afiliado" name="afiliado" type="text" placeholder="Afiliado" required>
+        <input id="remito" name="remito" type="text" placeholder="Remito" required>
+        <input id="factura" name="factura" type="text" placeholder="Factura (opcional)">
+        <input id="submitted-at" name="submittedAt" type="hidden">
+        <button id="submit-button" type="submit">Guardar</button>
+      </form>
+
+      <p class="meta" id="meta"></p>
+      <p class="message" id="message" role="status" aria-live="polite"></p>
+
+      <div class="success" id="success">
+        <strong>Entrega guardada.</strong>
+        <span id="success-detail"></span>
+      </div>
+
+      <div class="setup" id="setup">
+        Falta configurar la URL del Web App en <code>config.js</code>.
+      </div>
+    </section>
+  </main>
+
+  <iframe class="hidden-frame" id="submit-target" name="submit-target" title="Envio oculto"></iframe>
+
+  <script src="config.js"></script>
+  <script>
+    (function () {
+      const config = Object.assign(
+        {
+          pharmacyName: "Farmacia",
+          appsScriptUrl: ""
+        },
+        window.CADETES_APP_CONFIG || {}
+      );
+
+      const form = document.getElementById("delivery-form");
+      const target = document.getElementById("submit-target");
+      const submitButton = document.getElementById("submit-button");
+      const submittedAt = document.getElementById("submitted-at");
+      const message = document.getElementById("message");
+      const success = document.getElementById("success");
+      const successDetail = document.getElementById("success-detail");
+      const meta = document.getElementById("meta");
+      const setup = document.getElementById("setup");
+
+      let pending = false;
+
+      function nowText() {
+        return new Intl.DateTimeFormat("es-AR", {
+          dateStyle: "medium",
+          timeStyle: "short"
+        }).format(new Date());
+      }
+
+      function isConfigured() {
+        return /^https:\/\/script\.google\.com\/macros\/s\/.+\/exec(?:\?.*)?$/i.test(
+          config.appsScriptUrl || ""
+        );
+      }
+
+      function setMessage(text, tone) {
+        message.textContent = text;
+        message.className = "message";
+        if (tone) {
+          message.classList.add(tone);
+        }
+      }
+
+      function resetSuccess() {
+        success.classList.remove("visible");
+        successDetail.textContent = "";
+      }
+
+      function updateChrome() {
+        document.getElementById("pharmacy-name").textContent = config.pharmacyName || "Farmacia";
+        meta.textContent = "Actualizado " + nowText();
+
+        if (!isConfigured()) {
+          setup.classList.add("visible");
+          submitButton.disabled = true;
+          setMessage("La app esta subida, pero Google Sheets no esta conectado.", "error");
+          return;
+        }
+
+        setup.classList.remove("visible");
+        submitButton.disabled = false;
+        setMessage("", "");
+      }
+
+      target.addEventListener("load", function () {
+        if (!pending) {
+          return;
+        }
+
+        pending = false;
+        submitButton.disabled = false;
+        resetSuccess();
+        success.classList.add("visible");
+        successDetail.textContent =
+          document.getElementById("cadete").value.trim() + " - " +
+          document.getElementById("remito").value.trim();
+        setMessage("Envio completado.", "success");
+        form.reset();
+      });
+
+      form.addEventListener("submit", function (event) {
+        resetSuccess();
+
+        if (!form.reportValidity()) {
+          event.preventDefault();
+          setMessage("Completa los campos obligatorios.", "error");
+          return;
+        }
+
+        if (!isConfigured()) {
+          event.preventDefault();
+          setMessage("Falta conectar el Web App de Google.", "error");
+          return;
+        }
+
+        pending = true;
+        submittedAt.value = new Date().toISOString();
+        form.action = config.appsScriptUrl;
+        submitButton.disabled = true;
+        setMessage("Guardando...", "");
+      });
+
+      updateChrome();
+      window.setInterval(function () {
+        meta.textContent = "Actualizado " + nowText();
+      }, 30000);
+    })();
+  </script>
 </body>
 </html>
