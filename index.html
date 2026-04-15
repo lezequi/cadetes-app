@@ -57,10 +57,13 @@
     }
 
     .brand img {
-      width: 54px;
-      height: 54px;
-      border-radius: 14px;
-      object-fit: cover;
+      width: 64px;
+      height: 64px;
+      padding: 4px;
+      border-radius: 18px;
+      background: #ffffff;
+      object-fit: contain;
+      box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04);
     }
 
     .brand p {
@@ -149,6 +152,13 @@
       font-size: 1rem;
     }
 
+    .file-note {
+      margin: -4px 0 2px;
+      font-size: 0.8rem;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+
     .hidden-frame {
       width: 0;
       height: 0;
@@ -181,6 +191,7 @@
         <input id="remito" name="remito" type="text" placeholder="Remito" required>
         <input id="factura" name="factura" type="text" placeholder="Factura (opcional)">
         <input id="foto" name="foto" type="file" accept="image/*" capture="environment" required>
+        <p class="file-note">Si la foto es muy pesada, acercate mas o repetila para que salga mas liviana.</p>
         <input id="submitted-at" name="submittedAt" type="hidden">
         <input id="photo-base64" name="photoBase64" type="hidden">
         <input id="photo-name" name="photoName" type="hidden">
@@ -249,6 +260,16 @@
           };
           reader.readAsDataURL(file);
         });
+      }
+
+      function validatePhotoFile(file) {
+        if (!file.type || !file.type.startsWith("image/")) {
+          throw new Error("La foto tiene que ser una imagen.");
+        }
+
+        if (file.size > 15 * 1024 * 1024) {
+          throw new Error("La foto original es demasiado pesada. Proba con otra mas liviana.");
+        }
       }
 
       function loadImage(dataUrl) {
@@ -328,6 +349,7 @@
         setMessage("Preparando foto...", "");
 
         try {
+          validatePhotoFile(photoFile);
           const compressedPhoto = await buildCompressedPhoto(photoFile);
 
           photoBase64.value = compressedPhoto.base64;
