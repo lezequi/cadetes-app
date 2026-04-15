@@ -19,7 +19,6 @@
       --muted: #6f6a63;
       --line: #d7d1c7;
       --accent: #1d6d50;
-      --accent-soft: #e8f1ed;
       --danger: #9e3d35;
     }
 
@@ -96,6 +95,10 @@
       color: var(--text);
     }
 
+    input[type="file"] {
+      padding: 12px;
+    }
+
     input:focus {
       outline: none;
       border-color: var(--accent);
@@ -147,27 +150,19 @@
     }
 
     .setup {
+      display: none;
       margin-top: 18px;
       padding: 14px 16px;
       border-radius: 14px;
-      background: var(--accent-soft);
+      border: 1px solid var(--line);
+      background: var(--surface);
       color: var(--muted);
       font-size: 0.88rem;
       line-height: 1.5;
-      display: none;
     }
 
     .setup.visible {
       display: block;
-    }
-
-    .hidden-frame {
-      width: 0;
-      height: 0;
-      border: 0;
-      position: absolute;
-      opacity: 0;
-      pointer-events: none;
     }
   </style>
 </head>
@@ -182,12 +177,12 @@
         </div>
       </div>
 
-      <form id="delivery-form" method="POST" target="submit-target" novalidate>
+      <form id="delivery-form" novalidate>
         <input id="cadete" name="cadete" type="text" placeholder="Cadete" required>
         <input id="afiliado" name="afiliado" type="text" placeholder="Afiliado" required>
         <input id="remito" name="remito" type="text" placeholder="Remito" required>
         <input id="factura" name="factura" type="text" placeholder="Factura (opcional)">
-        <input id="submitted-at" name="submittedAt" type="hidden">
+        <input id="foto" name="foto" type="file" accept="image/*" capture="environment" required>
         <button id="submit-button" type="submit">Guardar</button>
       </form>
 
@@ -200,47 +195,26 @@
       </div>
 
       <div class="setup" id="setup">
-        Falta configurar la URL del Web App en <code>config.js</code>.
+        La app ya esta lista para Vercel. Falta cargar las variables del cliente para Google Sheets y Drive.
       </div>
     </section>
   </main>
 
-  <iframe class="hidden-frame" id="submit-target" name="submit-target" title="Envio oculto"></iframe>
-
-  <script src="config.js"></script>
   <script>
     (function () {
-      const config = Object.assign(
-        {
-          pharmacyName: "Farmacia",
-          appsScriptUrl: ""
-        },
-        window.CADETES_APP_CONFIG || {}
-      );
-
       const form = document.getElementById("delivery-form");
-      const target = document.getElementById("submit-target");
       const submitButton = document.getElementById("submit-button");
-      const submittedAt = document.getElementById("submitted-at");
       const message = document.getElementById("message");
       const success = document.getElementById("success");
       const successDetail = document.getElementById("success-detail");
       const meta = document.getElementById("meta");
       const setup = document.getElementById("setup");
 
-      let pending = false;
-
       function nowText() {
         return new Intl.DateTimeFormat("es-AR", {
           dateStyle: "medium",
           timeStyle: "short"
         }).format(new Date());
-      }
-
-      function isConfigured() {
-        return /^https:\/\/script\.google\.com\/macros\/s\/.+\/exec(?:\?.*)?$/i.test(
-          config.appsScriptUrl || ""
-        );
       }
 
       function setMessage(text, tone) {
@@ -256,64 +230,71 @@
         successDetail.textContent = "";
       }
 
-      function updateChrome() {
-        document.getElementById("pharmacy-name").textContent = config.pharmacyName || "Farmacia";
-        meta.textContent = "Actualizado " + nowText();
+      async function loadConfig() {
+        try {
+          const response = await fetch("/api/config");
+          if (!response.ok) {
+            return;
+          }
 
-        if (!isConfigured()) {
-          setup.classList.add("visible");
-          submitButton.disabled = true;
-          setMessage("La app esta subida, pero Google Sheets no esta conectado.", "error");
-          return;
+          const data = await response.json();
+          if (data.pharmacyName) {
+            document.getElementById("pharmacy-name").textContent = data.pharmacyName;
+          }
+          if (!data.configured) {
+            setup.classList.add("visible");
+            submitButton.disabled = true;
+            setMessage("Falta configurar Google Drive y Google Sheets en Vercel.", "error");
+          }
+        } catch (error) {
+          setMessage("La app esta online, pero todavia no pudo leer la configuracion.", "error");
         }
-
-        setup.classList.remove("visible");
-        submitButton.disabled = false;
-        setMessage("", "");
       }
 
-      target.addEventListener("load", function () {
-        if (!pending) {
-          return;
-        }
-
-        pending = false;
-        submitButton.disabled = false;
-        resetSuccess();
-        success.classList.add("visible");
-        successDetail.textContent =
-          document.getElementById("cadete").value.trim() + " - " +
-          document.getElementById("remito").value.trim();
-        setMessage("Envio completado.", "success");
-        form.reset();
-      });
-
-      form.addEventListener("submit", function (event) {
+      form.addEventListener("submit", async function (event) {
+        event.preventDefault();
         resetSuccess();
 
         if (!form.reportValidity()) {
-          event.preventDefault();
           setMessage("Completa los campos obligatorios.", "error");
           return;
         }
 
-        if (!isConfigured()) {
-          event.preventDefault();
-          setMessage("Falta conectar el Web App de Google.", "error");
-          return;
-        }
+        const payload = new FormData(form);
+        payload.set("submittedAt", new Date().toISOString());
 
-        pending = true;
-        submittedAt.value = new Date().toISOString();
-        form.action = config.appsScriptUrl;
         submitButton.disabled = true;
         setMessage("Guardando...", "");
+
+        try {
+          const response = await fetch("/api/submit", {
+            method: "POST",
+            body: payload
+          });
+
+          const data = await response.json();
+          if (!response.ok) {
+            throw new Error(data.error || "No se pudo guardar.");
+          }
+
+          success.classList.add("visible");
+          successDetail.textContent =
+            data.remito + (data.photoUrl ? " - foto subida" : "");
+          setMessage("Envio completado.", "success");
+          form.reset();
+        } catch (error) {
+          setMessage(error.message || "No se pudo guardar.", "error");
+        } finally {
+          submitButton.disabled = false;
+        }
       });
 
-      updateChrome();
+      meta.textContent = "Actualizado " + nowText();
       window.setInterval(function () {
         meta.textContent = "Actualizado " + nowText();
       }, 30000);
+
+      loadConfig();
     })();
   </script>
 </body>

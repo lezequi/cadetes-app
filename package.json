@@ -1,0 +1,10 @@
+{
+  "name": "cadetes-vercel",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "dependencies": {
+    "formidable": "^3.5.2",
+    "googleapis": "^148.0.0"
+  }
+}
