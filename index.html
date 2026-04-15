@@ -173,7 +173,6 @@
       <form
         id="delivery-form"
         method="POST"
-        enctype="multipart/form-data"
         target="submit-target"
         novalidate
       >
@@ -183,6 +182,9 @@
         <input id="factura" name="factura" type="text" placeholder="Factura (opcional)">
         <input id="foto" name="foto" type="file" accept="image/*" capture="environment" required>
         <input id="submitted-at" name="submittedAt" type="hidden">
+        <input id="photo-base64" name="photoBase64" type="hidden">
+        <input id="photo-name" name="photoName" type="hidden">
+        <input id="photo-type" name="photoType" type="hidden">
         <button id="submit-button" type="submit">Guardar</button>
       </form>
 
@@ -200,12 +202,15 @@
 
   <script>
     (function () {
-      const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx3qTM6kjglt0nYP3vyKQevzzAcdmzb0QWad-rhDnoROlnLZkB_mDktbxB4rMb8HyQ0gw/exec";
+      const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwkmCBEZK5GbpoHY3deNNdQ1MxKxwInYMgyIyLyH_jcL7iSH4oNN-ralg9fhLEux3avDw/exec";
 
       const form = document.getElementById("delivery-form");
       const target = document.getElementById("submit-target");
       const submitButton = document.getElementById("submit-button");
       const submittedAt = document.getElementById("submitted-at");
+      const photoBase64 = document.getElementById("photo-base64");
+      const photoName = document.getElementById("photo-name");
+      const photoType = document.getElementById("photo-type");
       const message = document.getElementById("message");
       const success = document.getElementById("success");
       const successDetail = document.getElementById("success-detail");
@@ -233,6 +238,19 @@
         successDetail.textContent = "";
       }
 
+      function readFileAsDataUrl(file) {
+        return new Promise(function (resolve, reject) {
+          const reader = new FileReader();
+          reader.onload = function () {
+            resolve(String(reader.result || ""));
+          };
+          reader.onerror = function () {
+            reject(new Error("No se pudo leer la foto."));
+          };
+          reader.readAsDataURL(file);
+        });
+      }
+
       target.addEventListener("load", function () {
         if (!pending) {
           return;
@@ -248,7 +266,7 @@
         form.reset();
       });
 
-      form.addEventListener("submit", function (event) {
+      form.addEventListener("submit", async function (event) {
         resetSuccess();
 
         if (!form.reportValidity()) {
@@ -257,11 +275,34 @@
           return;
         }
 
-        pending = true;
-        submittedAt.value = new Date().toISOString();
-        form.action = SCRIPT_URL;
+        const photoFile = document.getElementById("foto").files[0];
+        if (!photoFile) {
+          event.preventDefault();
+          setMessage("Falta la foto.", "error");
+          return;
+        }
+
+        event.preventDefault();
         submitButton.disabled = true;
-        setMessage("Guardando...", "");
+        setMessage("Preparando foto...", "");
+
+        try {
+          const dataUrl = await readFileAsDataUrl(photoFile);
+          const encoded = dataUrl.split(",")[1] || "";
+
+          photoBase64.value = encoded;
+          photoName.value = photoFile.name || "foto.jpg";
+          photoType.value = photoFile.type || "image/jpeg";
+
+          pending = true;
+          submittedAt.value = new Date().toISOString();
+          form.action = SCRIPT_URL;
+          setMessage("Guardando...", "");
+          form.submit();
+        } catch (error) {
+          submitButton.disabled = false;
+          setMessage(error.message || "No se pudo preparar la foto.", "error");
+        }
       });
 
       meta.textContent = "Actualizado " + nowText();
