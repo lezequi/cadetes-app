@@ -202,7 +202,7 @@
 
   <script>
     (function () {
-      const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwkmCBEZK5GbpoHY3deNNdQ1MxKxwInYMgyIyLyH_jcL7iSH4oNN-ralg9fhLEux3avDw/exec";
+      const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyLf3VoXQPG6fGKD3sb01DjXOTMJDFOPn_UlYye5GMXx-e8qVWfp8WX_2QaBF4zGroy1A/exec";
 
       const form = document.getElementById("delivery-form");
       const target = document.getElementById("submit-target");
@@ -251,6 +251,47 @@
         });
       }
 
+      function loadImage(dataUrl) {
+        return new Promise(function (resolve, reject) {
+          const image = new Image();
+          image.onload = function () {
+            resolve(image);
+          };
+          image.onerror = function () {
+            reject(new Error("No se pudo procesar la foto."));
+          };
+          image.src = dataUrl;
+        });
+      }
+
+      async function buildCompressedPhoto(file) {
+        const originalDataUrl = await readFileAsDataUrl(file);
+        const image = await loadImage(originalDataUrl);
+        const maxSide = 900;
+        const scale = Math.min(1, maxSide / Math.max(image.width, image.height));
+        const width = Math.max(1, Math.round(image.width * scale));
+        const height = Math.max(1, Math.round(image.height * scale));
+        const canvas = document.createElement("canvas");
+        const context = canvas.getContext("2d");
+
+        canvas.width = width;
+        canvas.height = height;
+        context.drawImage(image, 0, 0, width, height);
+
+        const jpegDataUrl = canvas.toDataURL("image/jpeg", 0.45);
+        const encoded = jpegDataUrl.split(",")[1] || "";
+
+        if (encoded.length > 700000) {
+          throw new Error("La foto sigue siendo muy pesada. Acercate mas o usa una imagen mas liviana.");
+        }
+
+        return {
+          base64: encoded,
+          name: (file.name || "foto").replace(/\.[^.]+$/, "") + ".jpg",
+          type: "image/jpeg"
+        };
+      }
+
       target.addEventListener("load", function () {
         if (!pending) {
           return;
@@ -287,12 +328,11 @@
         setMessage("Preparando foto...", "");
 
         try {
-          const dataUrl = await readFileAsDataUrl(photoFile);
-          const encoded = dataUrl.split(",")[1] || "";
+          const compressedPhoto = await buildCompressedPhoto(photoFile);
 
-          photoBase64.value = encoded;
-          photoName.value = photoFile.name || "foto.jpg";
-          photoType.value = photoFile.type || "image/jpeg";
+          photoBase64.value = compressedPhoto.base64;
+          photoName.value = compressedPhoto.name;
+          photoType.value = compressedPhoto.type;
 
           pending = true;
           submittedAt.value = new Date().toISOString();
