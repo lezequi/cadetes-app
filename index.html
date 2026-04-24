@@ -102,6 +102,13 @@
       padding: 12px;
     }
 
+    .field-label {
+      margin: 2px 0 -6px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+
     input:focus {
       outline: none;
       border-color: var(--accent);
@@ -190,8 +197,16 @@
         <input id="afiliado" name="afiliado" type="text" placeholder="Afiliado" required>
         <input id="remito" name="remito" type="text" placeholder="Remito" required>
         <input id="factura" name="factura" type="text" placeholder="Factura (opcional)">
-        <input id="foto" name="foto" type="file" accept="image/*" capture="environment" required>
-        <p class="file-note">Si la foto es muy pesada, acercate mas o repetila para que salga mas liviana.</p>
+        <label class="field-label" for="fecha-hora-comprobante">Fecha y hora del comprobante</label>
+        <input
+          id="fecha-hora-comprobante"
+          name="fechaHoraComprobante"
+          type="datetime-local"
+          aria-label="Fecha y hora del comprobante"
+          required
+        >
+        <input id="foto" name="foto" type="file" accept=".jpg,.jpeg,.pdf,image/jpeg,application/pdf" required>
+        <p class="file-note">Acepta JPG o PDF. Si la imagen es muy pesada, acercate mas o repetila para que salga mas liviana.</p>
         <input id="submitted-at" name="submittedAt" type="hidden">
         <input id="photo-base64" name="photoBase64" type="hidden">
         <input id="photo-name" name="photoName" type="hidden">
@@ -219,6 +234,7 @@
       const target = document.getElementById("submit-target");
       const submitButton = document.getElementById("submit-button");
       const submittedAt = document.getElementById("submitted-at");
+      const voucherDateTime = document.getElementById("fecha-hora-comprobante");
       const photoBase64 = document.getElementById("photo-base64");
       const photoName = document.getElementById("photo-name");
       const photoType = document.getElementById("photo-type");
@@ -228,6 +244,7 @@
       const meta = document.getElementById("meta");
 
       let pending = false;
+      let confirmationTimer = null;
 
       function nowText() {
         return new Intl.DateTimeFormat("es-AR", {
@@ -249,6 +266,19 @@
         successDetail.textContent = "";
       }
 
+      function dateTimeLocalNow() {
+        const date = new Date();
+        date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
+        return date.toISOString().slice(0, 16);
+      }
+
+      function clearPendingState() {
+        pending = false;
+        window.clearTimeout(confirmationTimer);
+        confirmationTimer = null;
+        submitButton.disabled = false;
+      }
+
       function readFileAsDataUrl(file) {
         return new Promise(function (resolve, reject) {
           const reader = new FileReader();
@@ -263,12 +293,16 @@
       }
 
       function validatePhotoFile(file) {
-        if (!file.type || !file.type.startsWith("image/")) {
-          throw new Error("La foto tiene que ser una imagen.");
+        const lowerName = file.name.toLowerCase();
+        const isJpg = file.type === "image/jpeg" || lowerName.endsWith(".jpg") || lowerName.endsWith(".jpeg");
+        const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+
+        if (!isJpg && !isPdf) {
+          throw new Error("El comprobante tiene que ser JPG o PDF.");
         }
 
         if (file.size > 15 * 1024 * 1024) {
-          throw new Error("La foto original es demasiado pesada. Proba con otra mas liviana.");
+          throw new Error("El archivo es demasiado pesado. Proba con uno mas liviano.");
         }
       }
 
@@ -313,19 +347,48 @@
         };
       }
 
-      target.addEventListener("load", function () {
-        if (!pending) {
+      async function buildUploadPayload(file) {
+        const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+
+        if (isPdf) {
+          const dataUrl = await readFileAsDataUrl(file);
+          const encoded = dataUrl.split(",")[1] || "";
+
+          if (encoded.length > 1200000) {
+            throw new Error("El PDF es demasiado pesado. Exportalo mas liviano.");
+          }
+
+          return {
+            base64: encoded,
+            name: file.name || "comprobante.pdf",
+            type: "application/pdf"
+          };
+        }
+
+        return buildCompressedPhoto(file);
+      }
+
+      window.addEventListener("message", function (event) {
+        const data = event.data || {};
+        if (!pending || data.type !== "cadetes-submission") {
           return;
         }
 
-        pending = false;
-        submitButton.disabled = false;
-        success.classList.add("visible");
-        successDetail.textContent =
-          document.getElementById("cadete").value.trim() + " - " +
-          document.getElementById("remito").value.trim();
-        setMessage("Envio completado.", "success");
-        form.reset();
+        if (data.ok) {
+          success.classList.add("visible");
+          successDetail.textContent =
+            document.getElementById("cadete").value.trim() + " - " +
+            document.getElementById("remito").value.trim();
+          setMessage("Envio completado.", "success");
+          form.reset();
+          voucherDateTime.value = dateTimeLocalNow();
+        } else if (data.saved) {
+          setMessage("La fila se guardo, pero fallo el comprobante: " + (data.error || "revisar Drive"), "error");
+        } else {
+          setMessage(data.error || "No se pudo guardar la entrega.", "error");
+        }
+
+        clearPendingState();
       });
 
       form.addEventListener("submit", async function (event) {
@@ -350,23 +413,33 @@
 
         try {
           validatePhotoFile(photoFile);
-          const compressedPhoto = await buildCompressedPhoto(photoFile);
+          const uploadPayload = await buildUploadPayload(photoFile);
 
-          photoBase64.value = compressedPhoto.base64;
-          photoName.value = compressedPhoto.name;
-          photoType.value = compressedPhoto.type;
+          photoBase64.value = uploadPayload.base64;
+          photoName.value = uploadPayload.name;
+          photoType.value = uploadPayload.type;
 
           pending = true;
           submittedAt.value = new Date().toISOString();
           form.action = SCRIPT_URL;
           setMessage("Guardando...", "");
           form.submit();
+
+          confirmationTimer = window.setTimeout(function () {
+            if (!pending) {
+              return;
+            }
+
+            clearPendingState();
+            setMessage("No pude confirmar el guardado. Revisa la planilla antes de volver a cargar.", "error");
+          }, 25000);
         } catch (error) {
           submitButton.disabled = false;
           setMessage(error.message || "No se pudo preparar la foto.", "error");
         }
       });
 
+      voucherDateTime.value = dateTimeLocalNow();
       meta.textContent = "Actualizado " + nowText();
       window.setInterval(function () {
         meta.textContent = "Actualizado " + nowText();
