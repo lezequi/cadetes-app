@@ -76,13 +76,7 @@ function doPost(e) {
     ]);
 
     const lastRow = sheet.getLastRow();
-    if (photoUrl) {
-      const richText = SpreadsheetApp.newRichTextValue()
-        .setText("Ver comprobante")
-        .setLinkUrl(photoUrl)
-        .build();
-      sheet.getRange(lastRow, 7).setRichTextValue(richText);
-    }
+    setDocumentLink_(sheet, lastRow, 7, photoUrl);
 
     styleDataRow_(sheet, lastRow);
 
@@ -151,6 +145,36 @@ function styleDataRow_(sheet, row) {
     .setBackground(row % 2 === 0 ? "#f7f4fb" : "#ffffff");
 }
 
+function setDocumentLink_(sheet, row, column, url) {
+  if (!url) {
+    return;
+  }
+
+  const richText = SpreadsheetApp.newRichTextValue()
+    .setText("Ver comprobante")
+    .setLinkUrl(url)
+    .build();
+
+  sheet.getRange(row, column).setRichTextValue(richText);
+}
+
+function extractUrlFromFormula_(formula) {
+  const match = String(formula || "").match(/https:\/\/[^"',;)]+/);
+  return match ? match[0] : "";
+}
+
+function findHeaderColumn_(sheet, headerName) {
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+
+  for (let index = 0; index < headers.length; index += 1) {
+    if (clean_(headers[index]) === headerName) {
+      return index + 1;
+    }
+  }
+
+  return 0;
+}
+
 function formatDate_(isoString) {
   const date = new Date(isoString);
   return Utilities.formatDate(date, Session.getScriptTimeZone(), "dd/MM/yyyy HH:mm:ss");
@@ -194,6 +218,32 @@ function resetAppSheet() {
   sheet.clear();
   sheet.clearFormats();
   ensureSheetSetup_(sheet);
+}
+
+function repararLinksDocumento() {
+  const sheet = getSheet_();
+  const documentColumn = findHeaderColumn_(sheet, "Documento");
+
+  if (!documentColumn || sheet.getLastRow() < 2) {
+    return;
+  }
+
+  const rowCount = sheet.getLastRow() - 1;
+  const range = sheet.getRange(2, documentColumn, rowCount, 1);
+  const formulas = range.getFormulas();
+  let repaired = 0;
+
+  for (let index = 0; index < formulas.length; index += 1) {
+    const formula = formulas[index][0];
+    const url = extractUrlFromFormula_(formula);
+
+    if (url) {
+      setDocumentLink_(sheet, index + 2, documentColumn, url);
+      repaired += 1;
+    }
+  }
+
+  Logger.log("Links reparados: " + repaired);
 }
 
 function testWrite() {
