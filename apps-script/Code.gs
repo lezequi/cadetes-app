@@ -1,7 +1,6 @@
 const SPREADSHEET_ID = "13UpbfB0tqwyZ4y4FKnh1nPto2CuXIKmKe-1FMZjp0DA";
 const FOLDER_ID = "16BDn64N1bQ56GLBLcwfMaHgj9-Z9tWI1";
 const SHEET_NAME = "App";
-
 const HEADERS = [
   "Fecha de carga",
   "Fecha y hora comprobante",
@@ -19,99 +18,74 @@ function doGet() {
 }
 
 function doPost(e) {
-  let response = {
-    type: "cadetes-submission",
-    ok: false,
-    saved: false,
-    error: ""
-  };
-
   try {
     const sheet = getSheet_();
     const data = e && e.parameter ? e.parameter : {};
+    setupSheet_(sheet);
 
-    ensureSheetSetup_(sheet);
-
-    const submittedAt = clean_(data.submittedAt) || new Date().toISOString();
-    const fechaHoraComprobante = clean_(data.fechaHoraComprobante);
-    const cadete = clean_(data.cadete);
-    const afiliado = clean_(data.afiliado);
     const remito = clean_(data.remito);
-    const factura = clean_(data.factura);
-    const paymentType = clean_(data.paymentType) || "comprobante";
-    const isCashPayment = paymentType === "efectivo";
-    const paymentLabel = isCashPayment ? "Pago en efectivo" : "Con comprobante";
-    const photoBase64 = clean_(data.photoBase64);
-    const photoName = clean_(data.photoName) || "comprobante.jpg";
-    const photoType = clean_(data.photoType) || "image/jpeg";
-
+    const paymentType = clean_(data.paymentType) === "efectivo" ? "Pago en efectivo" : "Con comprobante";
+    const cashPayment = paymentType === "Pago en efectivo";
     let photoUrl = "";
     let photoError = "";
 
-    if (photoBase64) {
+    if (clean_(data.photoBase64)) {
       try {
         const folder = DriveApp.getFolderById(FOLDER_ID);
-        const bytes = Utilities.base64Decode(photoBase64);
-        const blob = Utilities.newBlob(bytes, photoType, buildFileName_(remito, photoName));
+        const bytes = Utilities.base64Decode(clean_(data.photoBase64));
+        const fileName = fileName_(remito, clean_(data.photoName) || "comprobante.jpg");
+        const blob = Utilities.newBlob(bytes, clean_(data.photoType) || "image/jpeg", fileName);
         const file = folder.createFile(blob);
         file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
         photoUrl = file.getUrl();
       } catch (error) {
-        photoError = error && error.message ? error.message : "Error al guardar comprobante";
+        photoError = message_(error, "Error al guardar comprobante");
       }
-    } else if (!isCashPayment) {
+    } else if (!cashPayment) {
       photoError = "No llego archivo adjunto";
     }
 
     sheet.appendRow([
-      formatDate_(submittedAt),
-      formatLocalInputDate_(fechaHoraComprobante),
-      cadete,
-      afiliado,
+      formatDate_(clean_(data.submittedAt) || new Date().toISOString()),
+      formatInputDate_(data.fechaHoraComprobante),
+      clean_(data.cadete),
+      clean_(data.afiliado),
       remito,
-      factura,
-      photoUrl,
+      clean_(data.factura),
+      "",
       photoError,
-      paymentLabel
+      paymentType
     ]);
 
-    const lastRow = sheet.getLastRow();
-    setDocumentLink_(sheet, lastRow, 7, photoUrl);
+    const row = sheet.getLastRow();
+    setLink_(sheet, row, 7, photoUrl);
+    styleRow_(sheet, row);
 
-    styleDataRow_(sheet, lastRow);
-
-    response = {
+    return response_({
       type: "cadetes-submission",
       ok: !photoError,
       saved: true,
       remito,
       photoUrl,
       error: photoError
-    };
+    });
   } catch (error) {
-    response.error = error && error.message ? error.message : "No se pudo guardar la entrega";
+    return response_({
+      type: "cadetes-submission",
+      ok: false,
+      saved: false,
+      error: message_(error, "No se pudo guardar la entrega")
+    });
   }
-
-  return buildPostMessageResponse_(response);
 }
 
 function getSheet_() {
   const spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
-  let sheet = spreadsheet.getSheetByName(SHEET_NAME);
-
-  if (!sheet) {
-    sheet = spreadsheet.insertSheet(SHEET_NAME);
-  }
-
-  return sheet;
+  return spreadsheet.getSheetByName(SHEET_NAME) || spreadsheet.insertSheet(SHEET_NAME);
 }
 
-function ensureSheetSetup_(sheet) {
+function setupSheet_(sheet) {
   sheet.getRange(1, 1, 1, HEADERS.length).setValues([HEADERS]);
-  formatSheet_(sheet);
-}
-
-function formatSheet_(sheet) {
   sheet.setFrozenRows(1);
   sheet.getRange(1, 1, 1, HEADERS.length)
     .setFontWeight("bold")
@@ -119,139 +93,65 @@ function formatSheet_(sheet) {
     .setFontColor("#ffffff")
     .setHorizontalAlignment("center");
 
-  sheet.setColumnWidth(1, 170);
-  sheet.setColumnWidth(2, 210);
-  sheet.setColumnWidth(3, 150);
-  sheet.setColumnWidth(4, 170);
-  sheet.setColumnWidth(5, 130);
-  sheet.setColumnWidth(6, 130);
-  sheet.setColumnWidth(7, 170);
-  sheet.setColumnWidth(8, 240);
-  sheet.setColumnWidth(9, 160);
+  [170, 210, 150, 170, 130, 130, 170, 240, 160].forEach(function (width, index) {
+    sheet.setColumnWidth(index + 1, width);
+  });
 
   if (sheet.getFilter()) {
     sheet.getFilter().remove();
   }
 
-  const lastRow = Math.max(sheet.getLastRow(), 2);
-  sheet.getRange(1, 1, lastRow, HEADERS.length).createFilter();
-  sheet.getRange(2, 1, Math.max(sheet.getMaxRows() - 1, 1), HEADERS.length)
-    .setVerticalAlignment("middle");
+  sheet.getRange(1, 1, Math.max(sheet.getLastRow(), 2), HEADERS.length).createFilter();
+  sheet.getRange(2, 1, Math.max(sheet.getMaxRows() - 1, 1), HEADERS.length).setVerticalAlignment("middle");
   sheet.setRowHeights(1, Math.max(sheet.getMaxRows(), 2), 28);
 }
 
-function styleDataRow_(sheet, row) {
-  sheet.getRange(row, 1, 1, HEADERS.length)
-    .setBackground(row % 2 === 0 ? "#f7f4fb" : "#ffffff");
-}
-
-function setDocumentLink_(sheet, row, column, url) {
+function setLink_(sheet, row, column, url) {
   if (!url) {
     return;
   }
 
-  const richText = SpreadsheetApp.newRichTextValue()
-    .setText("Ver comprobante")
-    .setLinkUrl(url)
-    .build();
-
-  sheet.getRange(row, column).setRichTextValue(richText);
-}
-
-function extractUrlFromFormula_(formula) {
-  const match = String(formula || "").match(/https:\/\/[^"',;)]+/);
-  return match ? match[0] : "";
-}
-
-function findHeaderColumn_(sheet, headerName) {
-  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-
-  for (let index = 0; index < headers.length; index += 1) {
-    if (clean_(headers[index]) === headerName) {
-      return index + 1;
-    }
-  }
-
-  return 0;
-}
-
-function formatDate_(isoString) {
-  const date = new Date(isoString);
-  return Utilities.formatDate(date, Session.getScriptTimeZone(), "dd/MM/yyyy HH:mm:ss");
-}
-
-function formatLocalInputDate_(value) {
-  if (!value) {
-    return "";
-  }
-
-  const date = new Date(value);
-  if (isNaN(date.getTime())) {
-    return value;
-  }
-
-  return Utilities.formatDate(date, Session.getScriptTimeZone(), "dd/MM/yyyy HH:mm:ss");
-}
-
-function buildFileName_(remito, photoName) {
-  const safeRemito = clean_(remito) || "entrega";
-  return safeRemito + "-" + new Date().getTime() + "-" + photoName;
-}
-
-function buildPostMessageResponse_(payload) {
-  const json = JSON.stringify(payload).replace(/</g, "\\u003c");
-  return HtmlService.createHtmlOutput(
-    '<!doctype html><html><body><script>' +
-    'var payload=' + json + ';' +
-    'try{window.parent.postMessage(payload,"*");}catch(e){}' +
-    'try{window.top.postMessage(payload,"*");}catch(e){}' +
-    '</script></body></html>'
+  sheet.getRange(row, column).setRichTextValue(
+    SpreadsheetApp.newRichTextValue().setText("Ver comprobante").setLinkUrl(url).build()
   );
 }
 
-function clean_(value) {
-  return String(value || "").trim();
+function styleRow_(sheet, row) {
+  sheet.getRange(row, 1, 1, HEADERS.length).setBackground(row % 2 === 0 ? "#f7f4fb" : "#ffffff");
+}
+
+function repararLinksDocumento() {
+  const sheet = getSheet_();
+  const column = findColumn_(sheet, "Documento");
+  if (!column || sheet.getLastRow() < 2) {
+    return;
+  }
+
+  const formulas = sheet.getRange(2, column, sheet.getLastRow() - 1, 1).getFormulas();
+  let repaired = 0;
+  formulas.forEach(function (row, index) {
+    const url = extractUrl_(row[0]);
+    if (url) {
+      setLink_(sheet, index + 2, column, url);
+      repaired += 1;
+    }
+  });
+  Logger.log("Links reparados: " + repaired);
 }
 
 function resetAppSheet() {
   const sheet = getSheet_();
   sheet.clear();
   sheet.clearFormats();
-  ensureSheetSetup_(sheet);
-}
-
-function repararLinksDocumento() {
-  const sheet = getSheet_();
-  const documentColumn = findHeaderColumn_(sheet, "Documento");
-
-  if (!documentColumn || sheet.getLastRow() < 2) {
-    return;
-  }
-
-  const rowCount = sheet.getLastRow() - 1;
-  const range = sheet.getRange(2, documentColumn, rowCount, 1);
-  const formulas = range.getFormulas();
-  let repaired = 0;
-
-  for (let index = 0; index < formulas.length; index += 1) {
-    const formula = formulas[index][0];
-    const url = extractUrlFromFormula_(formula);
-
-    if (url) {
-      setDocumentLink_(sheet, index + 2, documentColumn, url);
-      repaired += 1;
-    }
-  }
-
-  Logger.log("Links reparados: " + repaired);
+  setupSheet_(sheet);
 }
 
 function testWrite() {
   const sheet = getSheet_();
-  ensureSheetSetup_(sheet);
+  setupSheet_(sheet);
   sheet.appendRow([
     formatDate_(new Date().toISOString()),
-    formatLocalInputDate_("2026-04-24T12:00"),
+    "29/04/2026 10:22",
     "Codex",
     "Farmacia",
     "REM-MANUAL",
@@ -260,5 +160,53 @@ function testWrite() {
     "",
     "Pago en efectivo"
   ]);
-  styleDataRow_(sheet, sheet.getLastRow());
+  styleRow_(sheet, sheet.getLastRow());
+}
+
+function findColumn_(sheet, header) {
+  const values = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  for (let index = 0; index < values.length; index += 1) {
+    if (clean_(values[index]) === header) {
+      return index + 1;
+    }
+  }
+  return 0;
+}
+
+function extractUrl_(formula) {
+  const match = String(formula || "").match(/https:\/\/[^"',;)]+/);
+  return match ? match[0] : "";
+}
+
+function fileName_(remito, name) {
+  return (clean_(remito) || "entrega") + "-" + new Date().getTime() + "-" + name;
+}
+
+function formatDate_(value) {
+  return Utilities.formatDate(new Date(value), Session.getScriptTimeZone(), "dd/MM/yyyy HH:mm:ss");
+}
+
+function formatInputDate_(value) {
+  const text = clean_(value);
+  const match = text.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+  return match ? match[3] + "/" + match[2] + "/" + match[1] + " " + match[4] + ":" + match[5] : text;
+}
+
+function response_(payload) {
+  const json = JSON.stringify(payload).replace(/</g, "\\u003c");
+  return HtmlService.createHtmlOutput(
+    "<!doctype html><html><body><script>" +
+    "var payload=" + json + ";" +
+    "try{window.parent.postMessage(payload,'*');}catch(e){}" +
+    "try{window.top.postMessage(payload,'*');}catch(e){}" +
+    "</script></body></html>"
+  );
+}
+
+function message_(error, fallback) {
+  return error && error.message ? error.message : fallback;
+}
+
+function clean_(value) {
+  return String(value || "").trim();
 }
