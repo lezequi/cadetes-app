@@ -10,7 +10,8 @@ const HEADERS = [
   "Remito",
   "Factura",
   "Documento",
-  "Error Foto"
+  "Error Foto",
+  "Tipo de carga"
 ];
 
 function doGet() {
@@ -37,6 +38,9 @@ function doPost(e) {
     const afiliado = clean_(data.afiliado);
     const remito = clean_(data.remito);
     const factura = clean_(data.factura);
+    const paymentType = clean_(data.paymentType) || "comprobante";
+    const isCashPayment = paymentType === "efectivo";
+    const paymentLabel = isCashPayment ? "Pago en efectivo" : "Con comprobante";
     const photoBase64 = clean_(data.photoBase64);
     const photoName = clean_(data.photoName) || "comprobante.jpg";
     const photoType = clean_(data.photoType) || "image/jpeg";
@@ -55,7 +59,7 @@ function doPost(e) {
       } catch (error) {
         photoError = error && error.message ? error.message : "Error al guardar comprobante";
       }
-    } else {
+    } else if (!isCashPayment) {
       photoError = "No llego archivo adjunto";
     }
 
@@ -67,7 +71,8 @@ function doPost(e) {
       remito,
       factura,
       photoUrl,
-      photoError
+      photoError,
+      paymentLabel
     ]);
 
     const lastRow = sheet.getLastRow();
@@ -128,6 +133,7 @@ function formatSheet_(sheet) {
   sheet.setColumnWidth(6, 130);
   sheet.setColumnWidth(7, 170);
   sheet.setColumnWidth(8, 240);
+  sheet.setColumnWidth(9, 160);
 
   if (sheet.getFilter()) {
     sheet.getFilter().remove();
@@ -201,7 +207,8 @@ function testWrite() {
     "REM-MANUAL",
     "FAC-MANUAL",
     "",
-    ""
+    "",
+    "Pago en efectivo"
   ]);
   styleDataRow_(sheet, sheet.getLastRow());
 }

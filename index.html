@@ -100,6 +100,7 @@
     }
 
     input,
+    select,
     button {
       width: 100%;
       border: 1px solid var(--line);
@@ -107,13 +108,27 @@
       font: inherit;
     }
 
-    input {
+    input,
+    select {
       min-height: 54px;
       padding: 15px 16px;
       background: var(--surface);
       color: var(--text);
       box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
       transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
+    }
+
+    select {
+      appearance: none;
+      background-image:
+        linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+        linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+      background-position:
+        calc(100% - 22px) 24px,
+        calc(100% - 16px) 24px;
+      background-repeat: no-repeat;
+      background-size: 6px 6px;
+      cursor: pointer;
     }
 
     input::placeholder {
@@ -147,7 +162,8 @@
       color: var(--text);
     }
 
-    input:focus {
+    input:focus,
+    select:focus {
       outline: none;
       border-color: var(--accent);
       box-shadow: 0 0 0 4px rgba(8, 123, 61, 0.12);
@@ -221,6 +237,15 @@
       font-size: 0.8rem;
       color: var(--muted);
       line-height: 1.4;
+    }
+
+    .file-area {
+      display: grid;
+      gap: 12px;
+    }
+
+    .file-area.is-hidden {
+      display: none;
     }
 
     .hidden-frame {
@@ -299,9 +324,16 @@
           aria-label="Fecha y hora del comprobante"
           required
         >
-        <label class="field-label" for="foto">Comprobante</label>
-        <input id="foto" name="foto" type="file" accept=".jpg,.jpeg,.pdf,image/jpeg,application/pdf" required>
-        <p class="file-note">JPG o PDF liviano. Si la foto pesa mucho, acercate mas y repetila.</p>
+        <label class="field-label" for="payment-type">Tipo de carga</label>
+        <select id="payment-type" name="paymentType" required>
+          <option value="comprobante">Con comprobante</option>
+          <option value="efectivo">Pago en efectivo</option>
+        </select>
+        <div class="file-area" id="file-area">
+          <label class="field-label" for="foto">Comprobante</label>
+          <input id="foto" name="foto" type="file" accept=".jpg,.jpeg,.pdf,image/jpeg,application/pdf" required>
+          <p class="file-note">JPG o PDF liviano. Si la foto pesa mucho, acercate mas y repetila.</p>
+        </div>
         <input id="submitted-at" name="submittedAt" type="hidden">
         <input id="photo-base64" name="photoBase64" type="hidden">
         <input id="photo-name" name="photoName" type="hidden">
@@ -330,6 +362,9 @@
       const submitButton = document.getElementById("submit-button");
       const submittedAt = document.getElementById("submitted-at");
       const voucherDateTime = document.getElementById("fecha-hora-comprobante");
+      const paymentType = document.getElementById("payment-type");
+      const fileArea = document.getElementById("file-area");
+      const fileInput = document.getElementById("foto");
       const photoBase64 = document.getElementById("photo-base64");
       const photoName = document.getElementById("photo-name");
       const photoType = document.getElementById("photo-type");
@@ -372,6 +407,27 @@
         window.clearTimeout(confirmationTimer);
         confirmationTimer = null;
         submitButton.disabled = false;
+      }
+
+      function needsReceiptFile() {
+        return paymentType.value !== "efectivo";
+      }
+
+      function clearPhotoPayload() {
+        photoBase64.value = "";
+        photoName.value = "";
+        photoType.value = "";
+      }
+
+      function syncPaymentType() {
+        const needsFile = needsReceiptFile();
+        fileArea.classList.toggle("is-hidden", !needsFile);
+        fileInput.required = needsFile;
+
+        if (!needsFile) {
+          fileInput.value = "";
+          clearPhotoPayload();
+        }
       }
 
       function readFileAsDataUrl(file) {
@@ -477,6 +533,7 @@
           setMessage("Envio completado.", "success");
           form.reset();
           voucherDateTime.value = dateTimeLocalNow();
+          syncPaymentType();
         } else if (data.saved) {
           setMessage("La fila se guardo, pero fallo el comprobante: " + (data.error || "revisar Drive"), "error");
         } else {
@@ -495,8 +552,9 @@
           return;
         }
 
-        const photoFile = document.getElementById("foto").files[0];
-        if (!photoFile) {
+        const needsFile = needsReceiptFile();
+        const photoFile = fileInput.files[0];
+        if (needsFile && !photoFile) {
           event.preventDefault();
           setMessage("Falta la foto.", "error");
           return;
@@ -504,15 +562,20 @@
 
         event.preventDefault();
         submitButton.disabled = true;
-        setMessage("Preparando foto...", "");
+        setMessage(needsFile ? "Preparando foto..." : "Guardando pago en efectivo...", "");
 
         try {
-          validatePhotoFile(photoFile);
-          const uploadPayload = await buildUploadPayload(photoFile);
+          if (needsFile) {
+            validatePhotoFile(photoFile);
+            const uploadPayload = await buildUploadPayload(photoFile);
 
-          photoBase64.value = uploadPayload.base64;
-          photoName.value = uploadPayload.name;
-          photoType.value = uploadPayload.type;
+            photoBase64.value = uploadPayload.base64;
+            photoName.value = uploadPayload.name;
+            photoType.value = uploadPayload.type;
+          } else {
+            clearPhotoPayload();
+          }
+
 
           pending = true;
           submittedAt.value = new Date().toISOString();
@@ -534,7 +597,9 @@
         }
       });
 
+      paymentType.addEventListener("change", syncPaymentType);
       voucherDateTime.value = dateTimeLocalNow();
+      syncPaymentType();
       meta.textContent = "Actualizado " + nowText();
       window.setInterval(function () {
         meta.textContent = "Actualizado " + nowText();
