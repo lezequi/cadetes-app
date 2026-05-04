@@ -588,8 +588,8 @@
             }
 
             clearPendingState();
-            setMessage("No pude confirmar el guardado. Revisa la planilla antes de volver a cargar.", "error");
-          }, 25000);
+            setMessage("La carga esta tardando mas de lo normal. Revisa la planilla antes de volver a cargar.", "error");
+          }, 60000);
         } catch (error) {
           submitButton.disabled = false;
           setMessage(error.message || "No se pudo preparar la foto.", "error");
