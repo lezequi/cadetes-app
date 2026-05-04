@@ -532,7 +532,6 @@
             document.getElementById("remito").value.trim();
           setMessage("Envio completado.", "success");
           form.reset();
-          voucherDateTime.value = dateTimeLocalNow();
           syncPaymentType();
         } else if (data.saved) {
           setMessage("La fila se guardo, pero fallo el comprobante: " + (data.error || "revisar Drive"), "error");
